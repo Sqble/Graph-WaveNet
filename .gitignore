@@ -4,3 +4,4 @@ __pycache__/
 garage/
 report_text.txt
 data/
+weather_cache/
