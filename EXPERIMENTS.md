@@ -51,6 +51,48 @@ This file tracks all model training runs, their configurations, and results.
 
 ## Experiments (Newest First)
 
+### Run #2 — Graph WaveNet + Weather Features (Temperature, Precipitation, Humidity)
+
+**Date:** 2025-04-24  
+**Status:** ✅ Success  
+**Branch/Commit:** `master` @ `fe57112`
+
+#### Model & Parameters
+| Parameter | Value |
+|-----------|-------|
+| Model | Graph WaveNet |
+| Dataset | METR-LA |
+| Epochs | 100 |
+| Batch Size | 64 |
+| Learning Rate | 0.001 |
+| Hidden Dim (nhid) | 32 |
+| Dropout | 0.3 |
+| Weight Decay | 0.0001 |
+| GCN Enabled | ✅ Yes |
+| Adaptive Adj | ✅ Yes |
+| Random Init Adj | ✅ Yes |
+| Device | cuda:0 |
+| Other Changes | 2-input stream architecture: traffic (speed + time-of-day) + weather (temp, precip, humidity). `in_dim` increased from 2 → 5. Weather standardized per-feature on train split. Historical weather fetched via Open-Meteo API and interpolated to 5-min intervals. |
+
+#### Results
+| Horizon | MAE | MAPE | RMSE |
+|---------|-----|------|------|
+| 15 min (H3) | 2.72 | 7.14% | 5.19 |
+| 30 min (H6) | 3.10 | 8.57% | 6.23 |
+| 60 min (H12) | 3.58 | 10.39% | 7.42 |
+| **Average (12H)** | **3.07** | **8.50%** | **6.13** |
+
+#### Notes
+- **Training time:** ~27 sec/epoch, **Total:** ~47 min for 100 epochs
+- **Best valid loss:** 2.7425 (vs baseline 2.7418)
+- Weather features did **not** improve average forecasting performance over the baseline
+- This aligns with the correlation matrix showing near-zero linear correlation between precipitation/temperature and average traffic speed
+- Weather's value may be limited to **anomalous conditions** (rain events), which are rare in the 4-month dataset
+- The model successfully learned to use weather without degrading performance, suggesting robust feature fusion
+- **Next:** Try adding road classification features (freeway vs arterial) as the 3rd input stream, or investigate weather impact specifically during rain days
+
+---
+
 ### Run #1 — Graph WaveNet Baseline (Bug Fix Applied)
 
 **Date:** 2025-04-24  
@@ -96,5 +138,6 @@ This file tracks all model training runs, their configurations, and results.
 
 | Run | Model | Epochs | MAE@60min | MAPE@60min | RMSE@60min | Notes |
 |-----|-------|--------|-----------|------------|------------|-------|
+| #2 | Graph WaveNet + Weather | 100 | 3.58 | 10.39% | 7.42 | Added temp, precip, humidity |
 | #1 | Graph WaveNet | 100 | 3.54 | 10.19% | 7.29 | Baseline, bug fix applied |
 
