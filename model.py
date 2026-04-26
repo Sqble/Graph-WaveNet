@@ -47,7 +47,7 @@ class gcn(nn.Module):
 
 
 class gwnet(nn.Module):
-    def __init__(self, device, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, in_dim=2,out_dim=12,residual_channels=32,dilation_channels=32,skip_channels=256,end_channels=512,kernel_size=2,blocks=4,layers=2, use_multi_stream=False, traffic_dim=2, weather_dim=3, road_dim=4, use_weather_gate=False):
+    def __init__(self, device, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, in_dim=2,out_dim=12,residual_channels=32,dilation_channels=32,skip_channels=256,end_channels=512,kernel_size=2,blocks=4,layers=2, use_multi_stream=False, traffic_dim=2, weather_dim=3, road_dim=4, use_weather_gate=False, use_road_gcn_inject=False):
         super(gwnet, self).__init__()
         self.dropout = dropout
         self.blocks = blocks
@@ -56,6 +56,7 @@ class gwnet(nn.Module):
         self.addaptadj = addaptadj
         self.use_multi_stream = use_multi_stream
         self.use_weather_gate = use_weather_gate
+        self.use_road_gcn_inject = use_road_gcn_inject
         self.traffic_dim = traffic_dim
         self.weather_dim = weather_dim
         self.road_dim = road_dim
@@ -75,6 +76,12 @@ class gwnet(nn.Module):
                                                 out_channels=residual_channels,
                                                 kernel_size=(1,1))
             self.road_emb = nn.Linear(road_dim, residual_channels)
+        elif self.use_road_gcn_inject:
+            # Road kept out of temporal convs; injected at GCN level
+            self.start_conv = nn.Conv2d(in_channels=in_dim - road_dim,
+                                        out_channels=residual_channels,
+                                        kernel_size=(1,1))
+            self.road_emb_gcn = nn.Linear(road_dim, residual_channels)
         else:
             self.start_conv = nn.Conv2d(in_channels=in_dim,
                                         out_channels=residual_channels,
@@ -179,6 +186,16 @@ class gwnet(nn.Module):
             road_emb = self.road_emb(road).transpose(1, 2).unsqueeze(-1)  # (B, res_ch, N, 1)
 
             x = x_traffic + x_weather + road_emb
+        elif self.use_road_gcn_inject:
+            # Extract road from last channels (static, first timestep)
+            road = x[:, -self.road_dim:, :, 0]  # (B, road_dim, N)
+            road = road.transpose(1, 2)  # (B, N, road_dim)
+            road_emb = self.road_emb_gcn(road).transpose(1, 2).unsqueeze(-1)  # (B, res_ch, N, 1)
+
+            # Process only traffic + weather through start_conv
+            weather = x[:, self.traffic_dim:self.traffic_dim+self.weather_dim, :, :]
+            x = x[:, :-self.road_dim, :, :]
+            x = self.start_conv(x)
         else:
             weather = x[:, self.traffic_dim:self.traffic_dim+self.weather_dim, :, :]
             x = self.start_conv(x)
@@ -234,6 +251,8 @@ class gwnet(nn.Module):
                     x = self.gconv[i](x, new_supports)
                 else:
                     x = self.gconv[i](x,self.supports)
+                if self.use_road_gcn_inject:
+                    x = x + road_emb
             else:
                 x = self.residual_convs[i](x)
 

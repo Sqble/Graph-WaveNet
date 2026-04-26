@@ -51,6 +51,48 @@ This file tracks all model training runs, their configurations, and results.
 
 ## Experiments (Newest First)
 
+### Run #6 — Graph WaveNet + GCN-Injected Static Road Embeddings
+
+**Date:** 2026-04-26  
+**Status:** ✅ Success  
+**Branch/Commit:** `master`
+
+#### Model & Parameters
+| Parameter | Value |
+|-----------|-------|
+| Model | Graph WaveNet (GCN Road Injection) |
+| Dataset | METR-LA |
+| Epochs | 100 |
+| Batch Size | 64 |
+| Learning Rate | 0.001 |
+| Hidden Dim (nhid) | 32 |
+| Dropout | 0.3 |
+| Weight Decay | 0.0001 |
+| GCN Enabled | ✅ Yes |
+| Adaptive Adj | ✅ Yes |
+| Random Init Adj | ✅ Yes |
+| Device | cuda:0 |
+| Other Changes | **GCN-level road injection**: `road_emb_gcn` Linear(4→32) embeds static road features; embedding added via broadcast to **every GCN output** after spatial aggregation. Road features are extracted from input (last 4 channels) and kept **out of dilated temporal convolutions** — only traffic+weather (5 channels) pass through `start_conv` and WaveNet blocks. |
+
+#### Results
+| Horizon | MAE | MAPE | RMSE |
+|---------|-----|------|------|
+| 15 min (H3) | 2.72 | 6.96% | 5.20 |
+| 30 min (H6) | 3.10 | 8.39% | 6.23 |
+| 60 min (H12) | 3.53 | 9.88% | 7.30 |
+| **Average (12H)** | **3.06** | **8.21%** | **6.09** |
+
+#### Notes
+- **Training time:** ~28 sec/epoch, **Total:** ~50 min for 100 epochs
+- **Best valid loss:** 2.7503 (at epoch 55)
+- **Test MAPE 8.21% is the best of all runs** — GCN injection appears to improve relative error calibration despite slightly higher valid loss
+- Test MAE@60min (3.53) matches the contextual concatenation run (Run #3, 3.53) and is competitive with the best
+- By injecting road at the GCN level rather than the input layer, the model treats road type/lanes as **node properties that modulate spatial aggregation**, not as time-series features. This is architecturally cleaner given that road features are static.
+- The valid loss curve (2.7503) is marginally worse than the weather-gated run (2.7390), suggesting that while GCN injection helps MAPE, it does not dramatically improve the primary training objective (MAE). This may be because 92% freeway sensor bias limits the value of road-type modulation.
+- **Next:** Combine GCN road injection with weather gate (FiLM) to see if the two mechanisms are complementary; evaluate on non-freeway subset to verify road injection impact where road diversity is higher.
+
+---
+
 ### Run #5 — Graph WaveNet + Multi-Stream + Weather Gate (FiLM)
 
 **Date:** 2026-04-26  
@@ -255,6 +297,7 @@ This file tracks all model training runs, their configurations, and results.
 
 | Run | Model | Epochs | Valid Loss | MAE@60min | MAPE@60min | RMSE@60min | Notes |
 |-----|-------|--------|------------|-----------|------------|------------|-------|
+| #6 | Graph WaveNet + GCN Road Injection | 100 | 2.7503 | 3.53 | 9.88% | 7.30 | **Best MAPE overall (8.21%)**; road injected at GCN level |
 | #5 | Graph WaveNet + Multi-Stream + Weather Gate | 75 | **2.7390** | 3.55 | 10.06% | 7.33 | **New best valid loss!** Dynamic weather gating |
 | #4 | Graph WaveNet + Multi-Stream | 50 | 2.7675 | 3.55 | 10.19% | 7.31 | Separate encoders + road embedding |
 | #3 | Graph WaveNet + Weather + Road | 100 | 2.7411 | 3.53 | 10.06% | 7.28 | Added temp, precip, humidity, road type, lanes |

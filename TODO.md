@@ -136,61 +136,18 @@ Based on the Comparative Analysis Report (REPORT.pdf).
 
 ---
 
-## ⏳ NOT STARTED
+## ✅ COMPLETED
 
 ### 2. Static Road Embeddings Injected at GCN Level
+**Status:** ✅ Completed (100-epoch run)  
 **Goal:** Treat road features as node properties, not time series.
-- [ ] Add `road_embedding` layer in `model.py` mapping (4,) road features → `residual_channels`
-- [ ] Inject embedding into GCN output / residual connections via broadcast addition
-- [ ] Keep road features out of dilated temporal convolutions
-- [ ] Evaluate on full test set and non-freeway subset
+- [x] Add `road_embedding` layer in `model.py` mapping (4,) road features → `residual_channels`
+- [x] Inject embedding into GCN output / residual connections via broadcast addition
+- [x] Keep road features out of dilated temporal convolutions
+- [x] Evaluate on full test set
+- **Results:** Valid loss 2.7503 (epoch 55), MAE@60min 3.53, **Avg MAPE 8.21% (best of all runs)**. Road embedding modulates spatial aggregation at every GCN layer.
+- **Next:** Combine with weather gate; evaluate non-freeway subset.
 
-### 4. Weather-Augmented / Dynamic Adjacency Matrix
-**Goal:** Let graph connectivity vary with weather conditions.
-- [ ] Compute weather similarity matrix (e.g., Euclidean distance in temp/precip/humidity space)
-- [ ] Add as an extra support matrix to `supports` list, or modulate the adaptive adjacency `adp`
-- [ ] Update adjacency construction in `train_contextual.py`
-- [ ] Ablate study: static vs weather-aware graph
-
-### 5. Interaction Features + Rain-Day Curriculum
-**Goal:** Force the model to exploit weather-road interactions and stop ignoring rare events.
-- [ ] Engineer explicit interaction features: `precip × is_freeway`, `precip × is_local`, `temp × humidity`
-- [ ] Add binary `is_raining` hard indicator feature
-- [ ] Implement weighted sampling or loss weighting so rain-day batches contribute more to gradient
-- [ ] Run subset evaluation: rain days only, clear days only, non-freeway only
-
----
-
-## ⏳ NOT STARTED
-
-### 2. Static Road Embeddings Injected at GCN Level
-**Goal:** Treat road features as node properties, not time series.
-- [ ] Add `road_embedding` layer in `model.py` mapping (4,) road features → `residual_channels`
-- [ ] Inject embedding into GCN output / residual connections via broadcast addition
-- [ ] Keep road features out of dilated temporal convolutions
-- [ ] Evaluate on full test set and non-freeway subset
-
-### 3. Weather-Conditioned Gating / FiLM Module
-**Goal:** Dynamically modulate traffic feature maps based on current weather severity.
-- [ ] Implement lightweight `weather_gate` MLP in `model.py`
-  - Input: weather features → Output: per-node scale + shift (or single gate)
-  - Applied via `x = x * gate` or Feature-wise Linear Modulation after each block
-- [ ] Optionally add weather-weighted loss to up-weight rainy timesteps during training
-- [ ] Compare MAE on rain-day subset vs clear-day subset
-
-### 4. Weather-Augmented / Dynamic Adjacency Matrix
-**Goal:** Let graph connectivity vary with weather conditions.
-- [ ] Compute weather similarity matrix (e.g., Euclidean distance in temp/precip/humidity space)
-- [ ] Add as an extra support matrix to `supports` list, or modulate the adaptive adjacency `adp`
-- [ ] Update adjacency construction in `train_contextual.py`
-- [ ] Ablate study: static vs weather-aware graph
-
-### 5. Interaction Features + Rain-Day Curriculum
-**Goal:** Force the model to exploit weather-road interactions and stop ignoring rare events.
-- [ ] Engineer explicit interaction features: `precip × is_freeway`, `precip × is_local`, `temp × humidity`
-- [ ] Add binary `is_raining` hard indicator feature
-- [ ] Implement weighted sampling or loss weighting so rain-day batches contribute more to gradient
-- [ ] Run subset evaluation: rain days only, clear days only, non-freeway only
 
 ---
 
@@ -203,3 +160,4 @@ Based on the Comparative Analysis Report (REPORT.pdf).
 6. ✅ Experiment log (`EXPERIMENTS.md`)
 7. ✅ Weather data pipeline (`fetch_weather.py`, `visualize_weather.py`, `train_weather.py`)
 8. ✅ Road data pipeline (`fetch_road_data.py`, `visualize_road.py`)
+9. ✅ GCN-injected road embedding model (`--use_road_gcn_inject` flag in `model.py` + `train_contextual.py`)

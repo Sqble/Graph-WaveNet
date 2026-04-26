@@ -2,8 +2,8 @@ import torch.optim as optim
 from model import *
 import util
 class trainer():
-    def __init__(self, scaler, in_dim, seq_length, num_nodes, nhid , dropout, lrate, wdecay, device, supports, gcn_bool, addaptadj, aptinit, use_multi_stream=False, traffic_dim=2, weather_dim=3, road_dim=4, use_weather_gate=False):
-        self.model = gwnet(device, num_nodes, dropout, supports=supports, gcn_bool=gcn_bool, addaptadj=addaptadj, aptinit=aptinit, in_dim=in_dim, out_dim=seq_length, residual_channels=nhid, dilation_channels=nhid, skip_channels=nhid * 8, end_channels=nhid * 16, use_multi_stream=use_multi_stream, traffic_dim=traffic_dim, weather_dim=weather_dim, road_dim=road_dim, use_weather_gate=use_weather_gate)
+    def __init__(self, scaler, in_dim, seq_length, num_nodes, nhid , dropout, lrate, wdecay, device, supports, gcn_bool, addaptadj, aptinit, use_multi_stream=False, traffic_dim=2, weather_dim=3, road_dim=4, use_weather_gate=False, use_road_gcn_inject=False):
+        self.model = gwnet(device, num_nodes, dropout, supports=supports, gcn_bool=gcn_bool, addaptadj=addaptadj, aptinit=aptinit, in_dim=in_dim, out_dim=seq_length, residual_channels=nhid, dilation_channels=nhid, skip_channels=nhid * 8, end_channels=nhid * 16, use_multi_stream=use_multi_stream, traffic_dim=traffic_dim, weather_dim=weather_dim, road_dim=road_dim, use_weather_gate=use_weather_gate, use_road_gcn_inject=use_road_gcn_inject)
         self.model.to(device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=lrate, weight_decay=wdecay)
         self.loss = util.masked_mae
