@@ -47,13 +47,18 @@ class gcn(nn.Module):
 
 
 class gwnet(nn.Module):
-    def __init__(self, device, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, in_dim=2,out_dim=12,residual_channels=32,dilation_channels=32,skip_channels=256,end_channels=512,kernel_size=2,blocks=4,layers=2):
+    def __init__(self, device, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, in_dim=2,out_dim=12,residual_channels=32,dilation_channels=32,skip_channels=256,end_channels=512,kernel_size=2,blocks=4,layers=2, use_multi_stream=False, traffic_dim=2, weather_dim=3, road_dim=4, use_weather_gate=False):
         super(gwnet, self).__init__()
         self.dropout = dropout
         self.blocks = blocks
         self.layers = layers
         self.gcn_bool = gcn_bool
         self.addaptadj = addaptadj
+        self.use_multi_stream = use_multi_stream
+        self.use_weather_gate = use_weather_gate
+        self.traffic_dim = traffic_dim
+        self.weather_dim = weather_dim
+        self.road_dim = road_dim
 
         self.filter_convs = nn.ModuleList()
         self.gate_convs = nn.ModuleList()
@@ -62,9 +67,23 @@ class gwnet(nn.Module):
         self.bn = nn.ModuleList()
         self.gconv = nn.ModuleList()
 
-        self.start_conv = nn.Conv2d(in_channels=in_dim,
-                                    out_channels=residual_channels,
-                                    kernel_size=(1,1))
+        if self.use_multi_stream:
+            self.start_conv_traffic = nn.Conv2d(in_channels=traffic_dim,
+                                                out_channels=residual_channels,
+                                                kernel_size=(1,1))
+            self.start_conv_weather = nn.Conv2d(in_channels=weather_dim,
+                                                out_channels=residual_channels,
+                                                kernel_size=(1,1))
+            self.road_emb = nn.Linear(road_dim, residual_channels)
+        else:
+            self.start_conv = nn.Conv2d(in_channels=in_dim,
+                                        out_channels=residual_channels,
+                                        kernel_size=(1,1))
+
+        if self.use_weather_gate:
+            self.weather_gate = nn.Conv2d(in_channels=weather_dim,
+                                          out_channels=residual_channels,
+                                          kernel_size=(1,1))
         self.supports = supports
 
         receptive_field = 1
@@ -144,7 +163,30 @@ class gwnet(nn.Module):
             x = nn.functional.pad(input,(self.receptive_field-in_len,0,0,0))
         else:
             x = input
-        x = self.start_conv(x)
+
+        if self.use_multi_stream:
+            # Split input into traffic, weather, and road streams
+            # input shape: (B, in_dim, N, T)
+            traffic = x[:, :self.traffic_dim, :, :]
+            weather = x[:, self.traffic_dim:self.traffic_dim+self.weather_dim, :, :]
+            # Road features are static across time; take first timestep
+            road = x[:, self.traffic_dim+self.weather_dim:, :, 0]  # (B, road_dim, N)
+
+            x_traffic = self.start_conv_traffic(traffic)
+            x_weather = self.start_conv_weather(weather)
+
+            road = road.transpose(1, 2)  # (B, N, road_dim)
+            road_emb = self.road_emb(road).transpose(1, 2).unsqueeze(-1)  # (B, res_ch, N, 1)
+
+            x = x_traffic + x_weather + road_emb
+        else:
+            weather = x[:, self.traffic_dim:self.traffic_dim+self.weather_dim, :, :]
+            x = self.start_conv(x)
+
+        if self.use_weather_gate:
+            gate = torch.sigmoid(self.weather_gate(weather))
+            x = x * gate
+
         skip = 0
 
         # calculate the current adaptive adj matrix once per iteration

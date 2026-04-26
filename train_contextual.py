@@ -47,6 +47,8 @@ parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--print_every', type=int, default=50)
 parser.add_argument('--save', type=str, default='./garage/metr_contextual')
 parser.add_argument('--expid', type=int, default=3)
+parser.add_argument('--use_multi_stream', action='store_true', help='use separate encoders for traffic/weather/road')
+parser.add_argument('--use_weather_gate', action='store_true', help='use weather-conditioned gating (FiLM-style)')
 
 args = parser.parse_args()
 
@@ -201,9 +203,15 @@ def main():
 
     engine = trainer(scaler, args.in_dim, args.seq_length, args.num_nodes, args.nhid, args.dropout,
                      args.learning_rate, args.weight_decay, device, supports, args.gcn_bool, args.addaptadj,
-                     adjinit)
+                     adjinit, use_multi_stream=args.use_multi_stream, traffic_dim=2, weather_dim=3, road_dim=4,
+                     use_weather_gate=args.use_weather_gate)
 
-    print("start training with contextual features (weather + road)...", flush=True)
+    if args.use_multi_stream and args.use_weather_gate:
+        print("start training with MULTI-STREAM + WEATHER GATE contextual features...", flush=True)
+    elif args.use_multi_stream:
+        print("start training with MULTI-STREAM contextual features (weather + road)...", flush=True)
+    else:
+        print("start training with contextual features (weather + road)...", flush=True)
     his_loss = []
     val_time = []
     train_time = []
