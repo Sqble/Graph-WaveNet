@@ -1,96 +1,106 @@
 # Graph WaveNet Traffic Forecasting — Project TODO
 
-Based on the Comparative Analysis Report (REPORT.pdf), this is the complete task list for the project.
+Based on the Comparative Analysis Report (REPORT.pdf).
 
 ---
 
-## PHASE 1: Baseline Training (IN PROGRESS)
-- [ ] **Train Graph WaveNet baseline to convergence (100 epochs)** on METR-LA
-  - Target from report: MAE ~3.53, MAPE ~6.90% at 60-min horizon
-  - Current: Epoch 71, training well (~6.84% MAPE on iterations)
-  - Wait for full 100 epochs, then capture test results
-- [x] ~~Fix Conv1d -> Conv2d bug in model.py~~ ✅ Done
+## ✅ COMPLETED
+
+### Bug Fix
+- [x] Fix Conv1d → Conv2d bug in `model.py` (`gate_convs`, `residual_convs`, `skip_convs`)
+
+### Baseline Training (100 epochs)
+- [x] Train Graph WaveNet to convergence on METR-LA
+  - Best valid loss: **2.7418**
+  - 15 min: MAE 2.72, MAPE 6.97%, RMSE 5.19
+  - 30 min: MAE 3.10, MAPE 8.53%, RMSE 6.21
+  - 60 min: MAE 3.54, MAPE 10.19%, RMSE 7.29
+  - **Avg (12H): MAE 3.06, MAPE 8.35%, RMSE 6.08**
+  - Saved: `best_model/gwn_baseline_metr_la_best.pth`
+  - Logged as **Run #1** in `EXPERIMENTS.md`
+
+### Weather Data Collection (Stream 2)
+- [x] Fetch historical weather data from Open-Meteo API for all 207 sensors (Mar–Jun 2012)
+  - Features: `temperature_2m`, `precipitation`, `relative_humidity_2m`
+  - Saved: `data/METR-LA/weather.npz` (34272, 207, 3)
+  - Cache: `data/weather_cache/` (per-sensor JSON)
+- [x] Interpolate hourly → 5-minute resolution (`fetch_weather.py`)
+- [x] Preprocess and align with METR-LA timestamps
+- [x] Standardize weather features per-feature on train split
+- [x] Visualize weather data (`visualize_weather.py`)
+  - `figures/weather_timeseries.png`
+  - `figures/weather_spatial.png`
+  - `figures/weather_distributions.png`
+  - `figures/weather_traffic_comparison.png`
+  - `figures/weather_correlation.png`
+
+### Weather-Enhanced Model & Training (2-input)
+- [x] Modify Graph WaveNet for weather input stream
+  - `in_dim` increased: 2 → 5 (traffic speed + time-of-day + 3 weather features)
+  - Created `train_weather.py` with sliding-window weather loader
+  - Weather concatenated to traffic features at input layer
+  - Core convolutions unchanged (modular design)
+- [x] Train weather-enhanced model (100 epochs)
+  - Best valid loss: **2.7425** (vs baseline 2.7418)
+  - 15 min: MAE 2.72, MAPE 7.14%, RMSE 5.19
+  - 30 min: MAE 3.10, MAPE 8.57%, RMSE 6.23
+  - 60 min: MAE 3.58, MAPE 10.39%, RMSE 7.42
+  - **Avg (12H): MAE 3.07, MAPE 8.50%, RMSE 6.13**
+  - Saved: `best_model/gwn_weather_enhanced_best.pth`
+  - Logged as **Run #2** in `EXPERIMENTS.md`
+
+### Comparative Analysis
+- [x] Document baseline and weather-enhanced results in `EXPERIMENTS.md`
+- [x] Comparison table (Run #1 vs Run #2)
+- [x] **Key finding:** Weather features did **not** improve average forecasting performance over baseline (near-zero linear correlation between weather and traffic speed)
 
 ---
 
-## PHASE 2: Data Collection — Contextual Features (REPORT Section VI)
-The report proposes a **Contextual Hybrid Augmentation** approach. We need three input streams:
+## 🔄 IN PROGRESS
 
-### Stream 2: Weather Data
-- [ ] Collect weather features for LA area (March–June 2012) via meteorological APIs
-  - Required fields: **precipitation**, **visibility**, **temperature**
-  - Same 5-minute temporal resolution as METR-LA
-  - Public APIs: NOAA, OpenWeatherMap historical, or similar
-- [ ] Preprocess and align weather data with METR-LA timestamps
-- [ ] Handle missing values (interpolation)
-
-### Stream 3: Static Road Features
+### Static Road Features (Stream 3)
 - [ ] Collect road classification data for the 207 sensors
-  - **Road category** (freeway, arterial, etc.)
-  - **Number of lanes** at each sensor location
+  - Road category (freeway, arterial, etc.)
+  - Number of lanes at each sensor location
 - [ ] Encode as node-level features (one-hot or embedding)
 
----
-
-## PHASE 3: Enhanced Model Implementation (REPORT Section VI.B)
-- [ ] **Modify Graph WaveNet for multi-input architecture**
-  - Input Stream 1: 12-step historical speed (existing)
-  - Input Stream 2: Weather features (new)
-  - Input Stream 3: Static road features (new)
-- [ ] **Feature Fusion Layer**
-  - Concatenate the 3 streams at the input layer
-  - Pass through adaptive graph convolutional layers
-  - Keep self-adaptive adjacency matrix intact
-- [ ] Ensure model remains modular — weather/road features added post-hoc without changing core convolutions
-
----
-
-## PHASE 4: Training & Evaluation
-- [ ] Train enhanced model on METR-LA with contextual inputs
-- [ ] Evaluate across forecasting horizons: **15 min, 30 min, 60 min**
-- [ ] Metrics: **MAE, RMSE, MAPE** (same as baseline)
-- [ ] Run for same 100 epochs for fair comparison
-
----
-
-## PHASE 5: Comparative Analysis (REPORT Section V)
-- [ ] **Baseline results** (temporal-only models from report):
-  - LSTM: MAE 4.37 (60 min)
-  - GRU: MAE 4.11 (60 min)
-  - TCN: MAE 3.96 (60 min)
-- [ ] **Spatiotemporal results** (from report):
-  - DCRNN: MAE 3.60 (60 min)
-  - STGCN: MAE 4.59 (60 min)
-  - Graph WaveNet: MAE 3.53, MAPE 6.90% (60 min) ← **Our baseline target**
-  - GMAN: MAE 2.80 (60 min)
-- [ ] **Our enhanced model results**
-- [ ] Document improvement over baseline Graph WaveNet
-
----
-
-## PHASE 6: Visualization & Reporting
-- [ ] Generate **performance comparison bar chart** (all 7 models + enhanced)
-- [ ] Generate **MAE/MAPE vs horizon line plots** (15/30/60 min)
-- [ ] Create **architecture diagram** for the proposed multi-input model
-- [ ] Update **REPORT.pdf** with:
+### Visualization & Reporting
+- [ ] Performance comparison bar chart (all 7 models from report + our best run)
+- [ ] MAE/MAPE vs horizon line plots (15/30/60 min)
+- [ ] Architecture diagram for the proposed 3-input model
+- [ ] Update REPORT.pdf with:
   - Enhanced model architecture description
   - Training logs and convergence curves
   - Final test results table
-  - Discussion on improvement magnitude
+  - Discussion on improvement magnitude (or lack thereof for weather-only)
   - Limitations and future work
 
 ---
 
-## PHASE 7: Future Work (REPORT Section VII)
+## ⏳ NOT STARTED
+
+### Full 3-Stream Architecture (traffic + weather + road)
+- [ ] Modify model for 3-input architecture
+  - Stream 1: 12-step historical speed (existing)
+  - Stream 2: Weather features (done, needs road added)
+  - Stream 3: Static road features (pending data collection)
+- [ ] Concatenate all 3 streams at input layer
+- [ ] Train full contextual hybrid model (100 epochs)
+- [ ] Evaluate and compare to baseline + weather-only
+
+### Future Work
 - [ ] Real-time incident data integration (accidents, lane closures)
 - [ ] Transfer learning across different cities/datasets
 - [ ] Empirical validation under adverse weather conditions
+- [ ] Investigate weather impact specifically during rain days (subset analysis)
 
 ---
 
 ## Key Deliverables
-1. Working Graph WaveNet baseline ✅ (bug fixed, training)
-2. Enhanced Graph WaveNet with weather + road features
-3. Comparative results table (8 models total)
-4. Updated report with results and analysis
-5. Clean codebase pushed to personal fork
+1. ✅ Working baseline (`best_model/gwn_baseline_metr_la_best.pth`)
+2. ✅ Weather-enhanced model (`best_model/gwn_weather_enhanced_best.pth`)
+3. ⏳ Full contextual model with weather + road features (pending road data)
+4. 🔄 Comparative results (baseline vs weather done; road pending)
+5. 🔄 Updated report with results and analysis
+6. ✅ Experiment log (`EXPERIMENTS.md`)
+7. ✅ Weather data pipeline (`fetch_weather.py`, `visualize_weather.py`, `train_weather.py`)

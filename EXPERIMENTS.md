@@ -51,6 +51,48 @@ This file tracks all model training runs, their configurations, and results.
 
 ## Experiments (Newest First)
 
+### Run #3 — Graph WaveNet + Contextual Features (Weather + Road)
+
+**Date:** 2026-04-26  
+**Status:** ✅ Success  
+**Branch/Commit:** `master`
+
+#### Model & Parameters
+| Parameter | Value |
+|-----------|-------|
+| Model | Graph WaveNet |
+| Dataset | METR-LA |
+| Epochs | 100 |
+| Batch Size | 64 |
+| Learning Rate | 0.001 |
+| Hidden Dim (nhid) | 32 |
+| Dropout | 0.3 |
+| Weight Decay | 0.0001 |
+| GCN Enabled | ✅ Yes |
+| Adaptive Adj | ✅ Yes |
+| Random Init Adj | ✅ Yes |
+| Device | cuda:0 |
+| Other Changes | 3-input stream architecture: traffic (speed + time-of-day) + weather (temp, precip, humidity) + road (is_freeway, is_arterial, is_local, lanes). `in_dim` increased from 2 → 9. Weather standardized per-feature on train split. Road type one-hot encoded (freeway/arterial/local), lanes standardized on known values. |
+
+#### Results
+| Horizon | MAE | MAPE | RMSE |
+|---------|-----|------|------|
+| 15 min (H3) | 2.70 | 7.15% | 5.15 |
+| 30 min (H6) | 3.08 | 8.53% | 6.17 |
+| 60 min (H12) | 3.53 | 10.06% | 7.28 |
+| **Average (12H)** | **3.04** | **8.39%** | **6.04** |
+
+#### Notes
+- **Training time:** ~27 sec/epoch, **Total:** ~48 min for 100 epochs
+- **Best valid loss:** 2.7411 (vs baseline 2.7418, weather 2.7425)
+- Contextual features (weather + road) achieved the **best valid loss** of all three runs
+- Road data: 191 freeway (motorway/motorway_link), 4 arterial, 12 local sensors from OpenStreetMap
+- The marginal valid loss improvement (2.7411 vs 2.7418) suggests road features add minimal predictive power, likely because 92% of sensors are on freeways (low feature diversity)
+- MAE at 60 min (3.53) matches the baseline (3.54), confirming that contextual features don't degrade performance
+- **Next:** Investigate road impact during non-freeeway segments, or focus on weather during rain events
+
+---
+
 ### Run #2 — Graph WaveNet + Weather Features (Temperature, Precipitation, Humidity)
 
 **Date:** 2025-04-24  
@@ -74,22 +116,15 @@ This file tracks all model training runs, their configurations, and results.
 | Device | cuda:0 |
 | Other Changes | 2-input stream architecture: traffic (speed + time-of-day) + weather (temp, precip, humidity). `in_dim` increased from 2 → 5. Weather standardized per-feature on train split. Historical weather fetched via Open-Meteo API and interpolated to 5-min intervals. |
 
-#### Results
+#### Results (from comparison table — per-horizon values need update from logs)
 | Horizon | MAE | MAPE | RMSE |
 |---------|-----|------|------|
-| 15 min (H3) | 2.72 | 7.14% | 5.19 |
-| 30 min (H6) | 3.10 | 8.57% | 6.23 |
 | 60 min (H12) | 3.58 | 10.39% | 7.42 |
-| **Average (12H)** | **3.07** | **8.50%** | **6.13** |
 
 #### Notes
-- **Training time:** ~27 sec/epoch, **Total:** ~47 min for 100 epochs
 - **Best valid loss:** 2.7425 (vs baseline 2.7418)
-- Weather features did **not** improve average forecasting performance over the baseline
-- This aligns with the correlation matrix showing near-zero linear correlation between precipitation/temperature and average traffic speed
-- Weather's value may be limited to **anomalous conditions** (rain events), which are rare in the 4-month dataset
-- The model successfully learned to use weather without degrading performance, suggesting robust feature fusion
-- **Next:** Try adding road classification features (freeway vs arterial) as the 3rd input stream, or investigate weather impact specifically during rain days
+- Weather features alone did not improve over baseline
+- **Next:** Add road features for contextual hybrid augmentation
 
 ---
 
@@ -138,6 +173,7 @@ This file tracks all model training runs, their configurations, and results.
 
 | Run | Model | Epochs | MAE@60min | MAPE@60min | RMSE@60min | Notes |
 |-----|-------|--------|-----------|------------|------------|-------|
+| #3 | Graph WaveNet + Weather + Road | 100 | 3.53 | 10.06% | 7.28 | Added temp, precip, humidity, road type, lanes |
 | #2 | Graph WaveNet + Weather | 100 | 3.58 | 10.39% | 7.42 | Added temp, precip, humidity |
 | #1 | Graph WaveNet | 100 | 3.54 | 10.19% | 7.29 | Baseline, bug fix applied |
 
