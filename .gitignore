@@ -5,3 +5,22 @@ garage/
 report_text.txt
 data/
 weather_cache/
+
+# Local generated artifacts and heavy exports
+*.mp4
+*.zip
+*.ppt
+*.pptx
+*.docx
+*.pdf
+*.html
+*.pkl
+
+# Notebook/runtime noise
+.ipynb_checkpoints/
+*.log
+runs/
+checkpoints/
+
+# Local dependency folders
+node_modules/
